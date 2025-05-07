@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login and Signup - RestroSync</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+
+<body>
+
+    <div class="overlay"></div>
+    <div class="content">
+        <div class="align-welcome">
+            <div class="logo">
+                <img class="logo-img" src="logo.png" alt="">
+            </div>
+            <div class="Welcome-logo">
+            </div>
+        </div>
+        <div class="container" id="login-container">
+            <h2>Login</h2>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" name="password" placeholder="Enter your password"
+                        required>
+                </div>
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+            <div class="message"></div>
+            <div class="toggle" id="go-to-signup">Don't have an account? Sign up</div>
+        </div>
+
+        <div class="container" id="signup-container" style="display: none;">
+            <h2>Sign Up</h2>
+            <form id="signup-form">
+                <div class="input-group">
+                    <label for="signup-username">Username:</label>
+                    <input type="text" id="signup-username" name="username" placeholder="Enter your username" required>
+                </div>
+                <div class="input-group">
+                    <label for="signup-email">Email:</label>
+                    <input type="email" id="signup-email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="input-group">
+                    <label for="signup-password">Password:</label>
+                    <input type="password" id="signup-password" name="password" placeholder="Enter your password"
+                        required>
+                </div>
+                <div class="input-group">
+                    <label for="confirm-password">Confirm Password:</label>
+                    <input type="password" id="confirm-password" name="confirm_password"
+                        placeholder="Confirm your password" required>
+                </div>
+                <button type="submit" class="btn">Sign Up</button>
+            </form>
+            <div class="toggle" id="go-to-login">Already have an account? Log in</div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+    
+        const firebaseConfig = {
+            apiKey: "AIzaSyD7ki0BzQn7YGkdr75Nk1PEc3G-qraWfF0",
+            authDomain: "restrosync.firebaseapp.com",
+            projectId: "restrosync",
+            storageBucket: "restrosync.appspot.com",
+            messagingSenderId: "1055612629411",
+            appId: "1:1055612629411:web:1ec1b24087827f4c92aa16"
+        };
+    
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+    
+        document.getElementById('go-to-signup').addEventListener('click', function () {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('signup-container').style.display = 'block';
+        });
+    
+        document.getElementById('go-to-login').addEventListener('click', function () {
+            document.getElementById('signup-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        });
+    
+        // Signup form with default role as 'diner'
+        document.getElementById('signup-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+    
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+    
+            if (password !== confirmPassword) {
+                alert("Passwords do not match. Please try again.");
+                return;
+            }
+    
+            try {
+                // Create user with email and password
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                alert("Signup successful!");
+    
+                // Set default role as 'diner' in Firestore
+                await setDoc(doc(db, "userRoles", user.uid), {
+                    role: "diner"
+                });
+    
+                console.log("User role set to 'diner' in Firestore");
+    
+            } catch (error) {
+                const errorMessage = error.message;
+                alert("Error: " + errorMessage);
+            }
+        });
+    
+        // Login form handling with role-based redirection
+        document.getElementById('login-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+    
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+    
+            try {
+                // Sign in the user
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                alert("Login successful!");
+    
+                // Fetch the user's role from Firestore
+                const userRoleDoc = await getDoc(doc(db, "userRoles", user.uid));
+                if (userRoleDoc.exists()) {
+                    const userData = userRoleDoc.data();
+                    if (userData.role === "admin") {
+                        window.location.href = "../admin/admin.html"; // Redirect to admin page
+                    } else {
+                        window.location.href = "../user/user-dashboard.html"; // Redirect to diner page
+                    }
+                } else {
+                    alert("User role not found in Firestore!");
+                }
+            } catch (error) {
+                const errorMessage = error.message;
+                alert("Error: " + errorMessage);
+            }
+        });
+    </script>
+    
+    
+
+</body>
+
+</html>

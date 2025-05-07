@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        body { background-color: #f5f5dc; }
+        .header { background-color: #e0c28f; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4b3832; }
+        .header-logo img { height: 50px; }
+        .header-icons a { margin-left: 20px; color: #fff; text-decoration: none; font-size: 1.5rem; }
+        .dashboard { display: flex; margin-top: 20px; }
+        .sidebar { width: 250px; background-color: #e0c28f; padding: 20px; height: 100vh; border: 2px solid #4b3832; border-radius: 12px; }
+        .menu { margin-left: 20px; flex-grow: 1; padding: 20px; background-color: #fff; height: 80vh; overflow-y: auto; border-radius: 12px; }
+        .filter-button { background-color: #e0c28f; border: 0px; color: #4b3832; font-size: 25px; font-weight: 400; text-align: left; }
+
+        .menu-item {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            transition: margin-bottom 0.3s ease;
+        }
+
+        /* Initially hidden sliding content */
+        .extra-content {
+            height: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #e0c28f;
+            padding: 10px 15px;
+            transition: height 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .extra-content.visible {
+            height: auto;
+            opacity: 1;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .add-to-cart {
+            background-color: #4b3832;
+            border: #4b3832;
+        }
+
+        .add-to-cart:hover {
+            background-color: #e0c28f;
+            border: 2px solid #4b3832;
+            color: #4b3832;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-logo">
+            <img src="../nav-bar.png" alt="Restaurant Logo">
+        </div>
+        <div class="header-icons">
+            <a href="#"><i class="bi bi-calendar-check-fill" title="Book a Table"></i></a>
+            <a href="cart.html"><i class="bi bi-cart-fill" title="View Cart"></i></a>
+            <a href="#"><i class="bi bi-star-fill" title="Review"></i></a>
+            <a href="#"><i class="bi bi-box-arrow-right" title="Logout"></i></a>
+        </div>
+    </div>
+
+    <div class="container-fluid dashboard">
+        <div class="sidebar">
+            <input type="text" class="form-control mb-3" placeholder="Search...">
+            <div class="button-container">
+                <button class="filter-button" data-category="all">View All</button>
+                <button class="filter-button" data-category="starter">Starters</button>
+                <button class="filter-button" data-category="main">Main Course</button>
+                <button class="filter-button" data-category="dessert">Desserts</button>
+                <button class="filter-button" data-category="beverage">Beverages</button>
+            </div>
+        </div>
+
+        <div class="menu">
+            <h1 class="menu-title">Menu</h1>
+            <div id="menu-items"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+    
+        const firebaseConfig = {
+            apiKey: "AIzaSyD7ki0BzQn7YGkdr75Nk1PEc3G-qraWfF0",
+            authDomain: "restrosync.firebaseapp.com",
+            projectId: "restrosync",
+            storageBucket: "restrosync.appspot.com",
+            messagingSenderId: "1055612629411",
+            appId: "1:1055612629411:web:1ec1b24087827f4c92aa16"
+        };
+    
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+    
+        document.addEventListener("DOMContentLoaded", () => {
+            localStorage.removeItem('cart'); // Clear the cart on page refresh
+            loadMenuItems();
+        });
+    
+        async function loadMenuItems() {
+            const categories = { starter: [], main: [], dessert: [], beverage: [] };
+    
+            try {
+                const querySnapshot = await getDocs(collection(db, 'menuItems'));
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    categories[data.category]?.push(data);
+                });
+    
+                renderMenuItems(categories);
+                setupFilterButtons();
+            } catch (error) {
+                console.error("Error fetching menu items: ", error);
+            }
+        }
+    
+        function renderMenuItems(categories) {
+            const menuItemsContainer = document.getElementById('menu-items');
+            menuItemsContainer.innerHTML = '';
+    
+            for (const [category, items] of Object.entries(categories)) {
+                if (items.length) {
+                    const categoryHTML = `
+                        <div class="category" data-category="${category}">
+                            <h2>${capitalizeFirstLetter(category.replace('-', ' '))}</h2>
+                            <div class="menu-items">
+                                ${items.map(item => `
+                                    <div class="menu-item">
+                                        <span class="dish-name">${item.dishName}</span>
+                                        <span class="dish-price">₹${item.price}</span>
+                                    </div>
+                                    <div class="extra-content">
+                                        <input type="number" min="1" value="1" class="form-control quantity-input" style="width: 60px;">
+                                        <button class="btn btn-primary add-to-cart" onclick="addToCart('${item.dishName}', ${item.price}, this)">Add to Cart</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    menuItemsContainer.innerHTML += categoryHTML;
+                }
+            }
+    
+            // Add event listeners for hover effect
+            setupHoverEffect();
+        }
+    
+        // Attach addToCart function to the window object for global access
+        window.addToCart = function(itemName, price, button) {
+            const quantity = parseInt(button.previousElementSibling.value);
+            console.log(`Adding ${itemName}, Quantity: ${quantity}, Price: ₹${price}`);
+    
+            if (isNaN(quantity) || quantity <= 0) {
+                alert('Please enter a valid quantity.');
+                return;
+            }
+    
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    
+            const existingItemIndex = cart.findIndex(item => item.itemName === itemName);
+    
+            if (existingItemIndex >= 0) {
+                cart[existingItemIndex].quantity += quantity;
+            } else {
+                cart.push({ itemName, price, quantity });
+            }
+    
+            localStorage.setItem('cart', JSON.stringify(cart));
+    
+            alert(`${itemName} added to cart.`);
+        };
+    
+        function setupHoverEffect() {
+            document.querySelectorAll('.menu-item').forEach((item, index) => {
+                const extraContent = item.nextElementSibling;
+    
+                item.addEventListener('mouseenter', () => {
+                    extraContent.classList.add('visible');
+                });
+    
+                item.addEventListener('mouseleave', () => {
+                    extraContent.classList.remove('visible');
+                });
+    
+                extraContent.addEventListener('mouseenter', () => {
+                    extraContent.classList.add('visible');
+                });
+    
+                extraContent.addEventListener('mouseleave', () => {
+                    extraContent.classList.remove('visible');
+                });
+            });
+        }
+    
+        function setupFilterButtons() {
+            document.querySelectorAll('.filter-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const category = e.target.getAttribute('data-category');
+                    filterMenuItems(category);
+                });
+            });
+        }
+    
+        function filterMenuItems(category) {
+            const allItems = document.querySelectorAll('.category');
+            allItems.forEach(item => {
+                if (category === 'all' || item.getAttribute('data-category') === category) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+    
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+    </script>
+    
+</body>
+</html>
